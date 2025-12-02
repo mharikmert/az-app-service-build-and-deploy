@@ -260,7 +260,7 @@ runs:
       with:
         url: ${{ inputs.slot_healthcheck_url }}
         max-attempts: 20
-        retry-delay: 15
+        retry-delay: 15s
         retry-all: true
 
     # --- Slot swap & prod health (prod mode only) ---
@@ -283,7 +283,7 @@ runs:
       with:
         url: ${{ inputs.prod_healthcheck_url }}
         max-attempts: 10
-        retry-delay: 15
+        retry-delay: 15s
         retry-all: true
 
     # --- Optional release in prod mode ---
