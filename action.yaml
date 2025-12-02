@@ -1,0 +1,317 @@
+name: "Build & Deploy Node.js App to Azure App Service"
+description: >
+  Opinionated Node.js build & deploy for Azure App Service with two modes:
+  - mode=pre-prod: dry-run semver, APP_VERSION=<version>-rc, deploy to given slot, healthcheck only.
+  - mode=prod:    dry-run semver, APP_VERSION=<version>, deploy to staging-like slot, healthcheck, swap to target slot, healthcheck again.
+  Optionally creates a tag & GitHub release in prod mode when release=true.
+author: "mharikmert"
+branding:
+  color: "blue"
+  icon: "upload-cloud"
+
+inputs:
+  mode:
+    description: '"pre-prod" or "prod". Controls how versioning, deploy and swap behave.'
+    required: true
+
+  github_token:
+    description: "GitHub token for versioning and (optionally) releases (usually secrets.GITHUB_TOKEN)."
+    required: true
+
+  azure_credentials:
+    description: "JSON credentials for azure/login (service principal)."
+    required: true
+
+  resource_group:
+    description: "Azure resource group name."
+    required: true
+
+  webapp_name:
+    description: "Azure App Service name."
+    required: true
+
+  # Node / build
+  node_version:
+    description: "Node.js version to use."
+    required: false
+    default: "22.x"
+
+  install_command:
+    description: "Command to install dependencies."
+    required: false
+    default: "npm ci"
+
+  run_tests:
+    description: "If true, run tests before build."
+    required: false
+    default: "false"
+
+  test_command:
+    description: "Test command to run when run_tests is true."
+    required: false
+    default: "npm test"
+
+  build_command:
+    description: "Build command (leave empty if no build step is needed)."
+    required: false
+    default: ""
+
+  node_env:
+    description: "NODE_ENV to set during build."
+    required: false
+    default: "production"
+
+  ci_env:
+    description: "Value for CI env var."
+    required: false
+    default: "false"
+
+  package_path:
+    description: 'Path to deploy (folder or zip). Defaults to repo root ".".'
+    required: false
+    default: "."
+
+  # Versioning behavior per mode (sane defaults, but overridable)
+  preprod_default_bump:
+    description: "default_bump for pre-prod mode (github-tag-action)."
+    required: false
+    default: "false"
+
+  preprod_suffix:
+    description: 'Suffix for APP_VERSION in pre-prod mode (e.g. "-rc").'
+    required: false
+    default: "-rc"
+
+  prod_default_bump:
+    description: "default_bump for prod mode (github-tag-action)."
+    required: false
+    default: "patch"
+
+  # Slot & healthcheck URLs
+  slot_name:
+    description: 'Slot to deploy to (e.g. "test" or "staging").'
+    required: true
+
+  slot_healthcheck_url:
+    description: "URL to health-check after deploy (slot URL). Leave empty to skip."
+    required: false
+    default: ""
+
+  prod_healthcheck_url:
+    description: "URL to health-check after swap in prod mode (usually production URL). Leave empty to skip."
+    required: false
+    default: ""
+
+  swap_target_slot:
+    description: 'Target slot for swap in prod mode (typically "production").'
+    required: false
+    default: "production"
+
+  # Release behavior (prod mode only)
+  release:
+    description: "If true AND mode=prod, bump version, push tag & create GitHub release after a successful deployment."
+    required: false
+    default: "false"
+
+outputs:
+  next_version:
+    description: "Next semantic version (dry-run) used for APP_VERSION."
+    value: ${{ steps.set-app-version.outputs.next_version }}
+
+  app_version:
+    description: "Computed APP_VERSION value (with suffix in pre-prod)."
+    value: ${{ steps.set-app-version.outputs.app_version }}
+
+  release_tag:
+    description: "Tag name created when release=true in prod mode (empty otherwise)."
+    value: ${{ steps.release-output.outputs.release_tag }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Validate mode
+      shell: bash
+      run: |
+        echo "Mode: '${{ inputs.mode }}'"
+        if [ "${{ inputs.mode }}" != "pre-prod" ] && [ "${{ inputs.mode }}" != "prod" ]; then
+          echo "❌ Invalid mode '${{ inputs.mode }}'. Expected 'pre-prod' or 'prod'."
+          exit 1
+        fi
+
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set base env vars
+      shell: bash
+      run: |
+        echo "NODE_ENV=${{ inputs.node_env }}" >> $GITHUB_ENV
+        echo "CI=${{ inputs.ci_env }}" >> $GITHUB_ENV
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node_version }}
+
+    - name: Install dependencies
+      shell: bash
+      run: |
+        set -e
+        if [ -n "${{ inputs.install_command }}" ]; then
+          echo "Running install command: ${{ inputs.install_command }}"
+          ${{ inputs.install_command }}
+        else
+          echo "No install command specified, skipping."
+        fi
+
+    - name: Run tests
+      if: ${{ inputs.run_tests == 'true' }}
+      shell: bash
+      run: |
+        set -e
+        echo "Running test command: ${{ inputs.test_command }}"
+        ${{ inputs.test_command }}
+
+    - name: Build app
+      if: ${{ inputs.build_command != '' }}
+      shell: bash
+      run: |
+        set -e
+        echo "Running build command: ${{ inputs.build_command }}"
+        ${{ inputs.build_command }}
+
+    # --- Version parameters based on mode ---
+
+    - name: Determine version parameters
+      id: version-params
+      shell: bash
+      run: |
+        if [ "${{ inputs.mode }}" = "pre-prod" ]; then
+          echo "default_bump=${{ inputs.preprod_default_bump }}" >> $GITHUB_OUTPUT
+          echo "suffix=${{ inputs.preprod_suffix }}" >> $GITHUB_OUTPUT
+        else
+          echo "default_bump=${{ inputs.prod_default_bump }}" >> $GITHUB_OUTPUT
+          echo "suffix=" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Compute version (dry-run)
+      id: compute-version
+      uses: mathieudutour/github-tag-action@v6.2
+      with:
+        github_token: ${{ inputs.github_token }}
+        default_bump: ${{ steps.version-params.outputs.default_bump }}
+        dry_run: true
+        release_branches: master
+        pre_release_branches: test
+
+    - name: Set APP_VERSION
+      id: set-app-version
+      shell: bash
+      env:
+        NEW_VERSION: ${{ steps.compute-version.outputs.new_version }}
+        SUFFIX: ${{ steps.version-params.outputs.suffix }}
+      run: |
+        set -e
+        if [ -z "$NEW_VERSION" ]; then
+          echo "❌ Could not determine NEW_VERSION from github-tag-action outputs."
+          exit 1
+        fi
+
+        APP_VERSION="${NEW_VERSION}${SUFFIX}"
+
+        echo "Computed NEW_VERSION=${NEW_VERSION}"
+        echo "Computed APP_VERSION=${APP_VERSION}"
+
+        echo "next_version=${NEW_VERSION}" >> $GITHUB_OUTPUT
+        echo "app_version=${APP_VERSION}" >> $GITHUB_OUTPUT
+
+        echo "APP_VERSION=${APP_VERSION}" >> $GITHUB_ENV
+
+    # --- Azure deploy ---
+
+    - name: Azure Login
+      uses: azure/login@v2
+      with:
+        creds: ${{ inputs.azure_credentials }}
+
+    - name: Deploy to slot
+      uses: azure/webapps-deploy@v3
+      with:
+        app-name: ${{ inputs.webapp_name }}
+        slot-name: ${{ inputs.slot_name }}
+        package: ${{ inputs.package_path }}
+
+    - name: Set APP_VERSION on slot
+      shell: bash
+      run: |
+        echo "Setting APP_VERSION='${APP_VERSION}' on slot '${{ inputs.slot_name }}'..."
+        az webapp config appsettings set \
+          --resource-group "${{ inputs.resource_group }}" \
+          --name "${{ inputs.webapp_name }}" \
+          --slot "${{ inputs.slot_name }}" \
+          --settings APP_VERSION="${APP_VERSION}"
+
+    # --- Health checks using your script ---
+
+    - name: Health check slot
+      if: ${{ inputs.slot_healthcheck_url != '' }}
+      uses: jtalk/url-health-check-action@v4
+      with:
+        url: ${{ inputs.slot_healthcheck_url }}
+        max-attempts: 20
+        retry-delay: 15
+        retry-all: true
+
+    # --- Slot swap & prod health (prod mode only) ---
+
+    - name: Swap slot -> target (prod mode only)
+      if: ${{ inputs.mode == 'prod' }}
+      shell: bash
+      run: |
+        echo "Swapping slot '${{ inputs.slot_name }}' -> '${{ inputs.swap_target_slot }}'..."
+        az webapp deployment slot swap \
+          --resource-group "${{ inputs.resource_group }}" \
+          --name "${{ inputs.webapp_name }}" \
+          --slot "${{ inputs.slot_name }}" \
+          --target-slot "${{ inputs.swap_target_slot }}"
+        echo "Slot swap completed."
+
+    - name: Health check production after swap
+      if: ${{ inputs.mode == 'prod' && inputs.prod_healthcheck_url != '' }}
+      uses: jtalk/url-health-check-action@v4
+      with:
+        url: ${{ inputs.prod_healthcheck_url }}
+        max-attempts: 10
+        retry-delay: 15
+        retry-all: true
+
+    # --- Optional release in prod mode ---
+
+    - name: Bump version and push tag (release)
+      id: tag_version
+      if: ${{ inputs.mode == 'prod' && inputs.release == 'true' }}
+      uses: mathieudutour/github-tag-action@v6.2
+      with:
+        github_token: ${{ inputs.github_token }}
+        default_bump: ${{ inputs.prod_default_bump }}
+        release_branches: master
+        pre_release_branches: test
+
+    - name: Create GitHub release
+      id: do_release
+      if: ${{ inputs.mode == 'prod' && inputs.release == 'true' }}
+      uses: ncipollo/release-action@v1
+      with:
+        tag: ${{ steps.tag_version.outputs.new_tag }}
+        name: ${{ steps.tag_version.outputs.new_tag }}
+        body: ${{ steps.tag_version.outputs.changelog }}
+
+    - name: Expose release tag output
+      id: release-output
+      if: ${{ inputs.mode == 'prod' && inputs.release == 'true' }}
+      shell: bash
+      env:
+        TAG: ${{ steps.tag_version.outputs.new_tag }}
+      run: |
+        echo "release_tag=${TAG}" >> $GITHUB_OUTPUT
