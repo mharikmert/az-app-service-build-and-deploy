@@ -146,6 +146,8 @@ runs:
         TOTAL=$((TOTAL + 1))  # Determine version parameters
         TOTAL=$((TOTAL + 1))  # Compute version (dry-run) echo
         TOTAL=$((TOTAL + 1))  # Set APP_VERSION
+        TOTAL=$((TOTAL + 1))  # Azure Login (Log step)
+        TOTAL=$((TOTAL + 1))  # Deploy to slot (Log step)
         TOTAL=$((TOTAL + 1))  # Set APP_VERSION on slot
         TOTAL=$((TOTAL + 1))  # Resolve slot health check URL
         TOTAL=$((TOTAL + 1))  # Health check slot
@@ -157,7 +159,6 @@ runs:
         if [ "${{ inputs.mode }}" = "prod" ] && [ "${{ inputs.release }}" = "true" ]; then
           TOTAL=$((TOTAL + 1))  # Tag version echo
           TOTAL=$((TOTAL + 1))  # Create GitHub release echo
-          TOTAL=$((TOTAL + 1))  # Expose release tag output
         fi
         echo "total_steps=${TOTAL}" >> $GITHUB_OUTPUT
         echo "STEP_COUNTER=0" >> $GITHUB_ENV
@@ -276,14 +277,26 @@ runs:
 
         echo "APP_VERSION=${APP_VERSION}" >> $GITHUB_ENV
 
-    # --- Azure deploy ---
+    # --- Azure Login (Service Principal) ---
 
-    - name: Azure Login
+    - name: Azure Login (Log step)
+      shell: bash
+      run: |
+        bash "${{ github.action_path }}/scripts/step_banner.sh" "Azure Login (Service Principal)"
+
+    - name: Azure Login (Azure App Service Login)
       uses: azure/login@v2
       with:
         creds: ${{ inputs.azure_credentials }}
 
-    - name: Deploy to slot
+    # --- Azure App Service Deployment (Deploy to slot) ---
+
+    - name: Deploy to slot (Log step)
+      shell: bash
+      run: |
+        bash "${{ github.action_path }}/scripts/step_banner.sh" "Azure App Service Deployment => ${{ inputs.webapp_name }} (slot: ${{ inputs.slot_name }})"
+
+    - name: Deploy to slot (Azure App Service Deployment)
       uses: azure/webapps-deploy@v3
       with:
         app-name: ${{ inputs.webapp_name }}
@@ -332,10 +345,7 @@ runs:
         bash "${{ github.action_path }}/scripts/step_banner.sh" "Running slot health check"
 
         URL="${{ steps.resolve-slot-url.outputs.url }}"
-        echo "Running slot health check for $URL"
-        bash "${{ github.action_path }}/scripts/health.sh" "$URL" 20 15 "slot (${{
-          inputs.slot_name
-        }})"
+        bash "${{ github.action_path }}/scripts/health.sh" "$URL" 20 15 "slot (${{ inputs.slot_name }})"
 
     # --- Slot swap & prod health (prod mode only) ---
 
