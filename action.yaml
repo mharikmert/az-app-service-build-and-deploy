@@ -97,20 +97,10 @@ inputs:
     required: false
     default: "test"
 
-  # Slot & healthcheck URLs
+  # Slots & swapping
   slot_name:
     description: 'Slot to deploy to (e.g. "test" or "staging").'
     required: true
-
-  slot_healthcheck_url:
-    description: "URL to health-check after deploy (slot URL). Leave empty to skip."
-    required: false
-    default: ""
-
-  prod_healthcheck_url:
-    description: "URL to health-check after swap in prod mode (usually production URL). Leave empty to skip."
-    required: false
-    default: ""
 
   swap_target_slot:
     description: 'Target slot for swap in prod mode (typically "production").'
@@ -139,10 +129,46 @@ outputs:
 runs:
   using: "composite"
   steps:
+    - name: Calculate total steps
+      id: calc-steps
+      shell: bash
+      run: |
+        # Count only steps that display step numbers in their output
+        TOTAL=1  # Validate mode
+        TOTAL=$((TOTAL + 1))  # Set base env vars
+        TOTAL=$((TOTAL + 1))  # Install dependencies
+        if [ "${{ inputs.run_tests }}" = "true" ]; then
+          TOTAL=$((TOTAL + 1))  # Run tests
+        fi
+        if [ -n "${{ inputs.build_command }}" ]; then
+          TOTAL=$((TOTAL + 1))  # Build app
+        fi
+        TOTAL=$((TOTAL + 1))  # Determine version parameters
+        TOTAL=$((TOTAL + 1))  # Compute version (dry-run) echo
+        TOTAL=$((TOTAL + 1))  # Set APP_VERSION
+        TOTAL=$((TOTAL + 1))  # Set APP_VERSION on slot
+        TOTAL=$((TOTAL + 1))  # Resolve slot health check URL
+        TOTAL=$((TOTAL + 1))  # Health check slot
+        if [ "${{ inputs.mode }}" = "prod" ]; then
+          TOTAL=$((TOTAL + 1))  # Swap slot -> target
+          TOTAL=$((TOTAL + 1))  # Resolve production health check URL
+          TOTAL=$((TOTAL + 1))  # Health check production after swap
+        fi
+        if [ "${{ inputs.mode }}" = "prod" ] && [ "${{ inputs.release }}" = "true" ]; then
+          TOTAL=$((TOTAL + 1))  # Tag version echo
+          TOTAL=$((TOTAL + 1))  # Create GitHub release echo
+          TOTAL=$((TOTAL + 1))  # Expose release tag output
+        fi
+        echo "total_steps=${TOTAL}" >> $GITHUB_OUTPUT
+        echo "STEP_COUNTER=0" >> $GITHUB_ENV
+        echo "TOTAL_STEPS=${TOTAL}" >> $GITHUB_ENV
+
     - name: Validate mode
       shell: bash
       run: |
+        bash "${{ github.action_path }}/scripts/step_banner.sh" "Validating mode"
         echo "Mode: '${{ inputs.mode }}'"
+
         if [ "${{ inputs.mode }}" != "pre-prod" ] && [ "${{ inputs.mode }}" != "prod" ]; then
           echo "❌ Invalid mode '${{ inputs.mode }}'. Expected 'pre-prod' or 'prod'."
           exit 1
@@ -156,6 +182,7 @@ runs:
     - name: Set base env vars
       shell: bash
       run: |
+        bash "${{ github.action_path }}/scripts/step_banner.sh" "Setting base environment variables"
         echo "NODE_ENV=${{ inputs.node_env }}" >> $GITHUB_ENV
         echo "CI=${{ inputs.ci_env }}" >> $GITHUB_ENV
 
@@ -168,6 +195,7 @@ runs:
       shell: bash
       run: |
         set -e
+        bash "${{ github.action_path }}/scripts/step_banner.sh" "Installing dependencies"
         if [ -n "${{ inputs.install_command }}" ]; then
           echo "Running install command: ${{ inputs.install_command }}"
           ${{ inputs.install_command }}
@@ -180,6 +208,7 @@ runs:
       shell: bash
       run: |
         set -e
+        bash "${{ github.action_path }}/scripts/step_banner.sh" "Running tests"
         echo "Running test command: ${{ inputs.test_command }}"
         ${{ inputs.test_command }}
 
@@ -188,6 +217,7 @@ runs:
       shell: bash
       run: |
         set -e
+        bash "${{ github.action_path }}/scripts/step_banner.sh" "Running build"
         echo "Running build command: ${{ inputs.build_command }}"
         ${{ inputs.build_command }}
 
@@ -197,6 +227,7 @@ runs:
       id: version-params
       shell: bash
       run: |
+        bash "${{ github.action_path }}/scripts/step_banner.sh" "Determining version parameters"
         if [ "${{ inputs.mode }}" = "pre-prod" ]; then
           echo "default_bump=${{ inputs.preprod_default_bump }}" >> $GITHUB_OUTPUT
           echo "suffix=${{ inputs.preprod_suffix }}" >> $GITHUB_OUTPUT
@@ -204,6 +235,11 @@ runs:
           echo "default_bump=${{ inputs.prod_default_bump }}" >> $GITHUB_OUTPUT
           echo "suffix=" >> $GITHUB_OUTPUT
         fi
+
+    - name: Compute version (dry-run)
+      shell: bash
+      run: |
+        bash "${{ github.action_path }}/scripts/step_banner.sh" "Computing version (dry-run)"
 
     - name: Compute version (dry-run)
       id: compute-version
@@ -223,6 +259,8 @@ runs:
         SUFFIX: ${{ steps.version-params.outputs.suffix }}
       run: |
         set -e
+        bash "${{ github.action_path }}/scripts/step_banner.sh" "Setting APP_VERSION"
+
         if [ -z "$NEW_VERSION" ]; then
           echo "❌ Could not determine NEW_VERSION from github-tag-action outputs."
           exit 1
@@ -255,23 +293,49 @@ runs:
     - name: Set APP_VERSION on slot
       shell: bash
       run: |
-        echo "Setting APP_VERSION='${APP_VERSION}' on slot '${{ inputs.slot_name }}'..."
+        bash "${{ github.action_path }}/scripts/step_banner.sh" "Setting APP_VERSION on slot"
+
         az webapp config appsettings set \
           --resource-group "${{ inputs.resource_group }}" \
           --name "${{ inputs.webapp_name }}" \
           --slot "${{ inputs.slot_name }}" \
           --settings APP_VERSION="${APP_VERSION}"
 
-    # --- Health checks using your script ---
+    # --- Resolve URLs for health checks ---
+
+    - name: Resolve slot health check URL
+      id: resolve-slot-url
+      shell: bash
+      run: |
+        bash "${{ github.action_path }}/scripts/step_banner.sh" "Resolving slot health check URL"
+
+        HOST=$(az webapp show \
+          --resource-group "${{ inputs.resource_group }}" \
+          --name "${{ inputs.webapp_name }}" \
+          --slot "${{ inputs.slot_name }}" \
+          --query "defaultHostName" -o tsv)
+
+        if [ -z "$HOST" ]; then
+          echo "❌ Could not resolve defaultHostName for slot '${{ inputs.slot_name }}'."
+          exit 1
+        fi
+
+        URL="https://$HOST"
+        echo "Resolved slot URL: $URL"
+        echo "url=$URL" >> "$GITHUB_OUTPUT"
+
+    # --- Health check slot ---
 
     - name: Health check slot
-      if: ${{ inputs.slot_healthcheck_url != '' }}
-      uses: jtalk/url-health-check-action@v4
-      with:
-        url: ${{ inputs.slot_healthcheck_url }}
-        max-attempts: 20
-        retry-delay: 15s
-        retry-all: true
+      shell: bash
+      run: |
+        bash "${{ github.action_path }}/scripts/step_banner.sh" "Running slot health check"
+
+        URL="${{ steps.resolve-slot-url.outputs.url }}"
+        echo "Running slot health check for $URL"
+        bash "${{ github.action_path }}/scripts/health.sh" "$URL" 20 15 "slot (${{
+          inputs.slot_name
+        }})"
 
     # --- Slot swap & prod health (prod mode only) ---
 
@@ -279,7 +343,8 @@ runs:
       if: ${{ inputs.mode == 'prod' }}
       shell: bash
       run: |
-        echo "Swapping slot '${{ inputs.slot_name }}' -> '${{ inputs.swap_target_slot }}'..."
+        bash "${{ github.action_path }}/scripts/step_banner.sh" "Swapping '${{ inputs.slot_name }}' -> '${{ inputs.swap_target_slot }}'"
+
         az webapp deployment slot swap \
           --resource-group "${{ inputs.resource_group }}" \
           --name "${{ inputs.webapp_name }}" \
@@ -287,18 +352,56 @@ runs:
           --target-slot "${{ inputs.swap_target_slot }}"
         echo "Slot swap completed."
 
+    - name: Resolve production health check URL
+      id: resolve-prod-url
+      if: ${{ inputs.mode == 'prod' }}
+      shell: bash
+      run: |
+        if [ "${{ inputs.swap_target_slot }}" = "production" ]; then
+          bash "${{ github.action_path }}/scripts/step_banner.sh" "Resolving production URL without --slot"
+
+          HOST=$(az webapp show \
+            --resource-group "${{ inputs.resource_group }}" \
+            --name "${{ inputs.webapp_name }}" \
+            --query "defaultHostName" -o tsv)
+        else
+          bash "${{ github.action_path }}/scripts/step_banner.sh" "Resolving URL for target slot '${{ inputs.swap_target_slot }}'"
+
+          HOST=$(az webapp show \
+            --resource-group "${{ inputs.resource_group }}" \
+            --name "${{ inputs.webapp_name }}" \
+            --slot "${{ inputs.swap_target_slot }}" \
+            --query "defaultHostName" -o tsv)
+        fi
+
+        if [ -z "$HOST" ]; then
+          echo "❌ Could not resolve defaultHostName for target '${{ inputs.swap_target_slot }}'."
+          exit 1
+        fi
+
+        URL="https://$HOST"
+        echo "Resolved production URL: $URL"
+        echo "url=$URL" >> "$GITHUB_OUTPUT"
+
     - name: Health check production after swap
-      if: ${{ inputs.mode == 'prod' && inputs.prod_healthcheck_url != '' }}
-      uses: jtalk/url-health-check-action@v4
-      with:
-        url: ${{ inputs.prod_healthcheck_url }}
-        max-attempts: 10
-        retry-delay: 15s
-        retry-all: true
+      if: ${{ inputs.mode == 'prod' }}
+      shell: bash
+      run: |
+        bash "${{ github.action_path }}/scripts/step_banner.sh" "Running production health check"
+
+        URL="${{ steps.resolve-prod-url.outputs.url }}"
+        echo "Running production health check for $URL"
+        bash "${{ github.action_path }}/scripts/health.sh" "$URL" 10 15 "production after swap"
 
     # --- Optional release in prod mode ---
 
-    - name: Bump version and push tag (release)
+    - name: Tag version
+      if: ${{ inputs.mode == 'prod' && inputs.release == 'true' }}
+      shell: bash
+      run: |
+        bash "${{ github.action_path }}/scripts/step_banner.sh" "Tagging version"
+
+    - name: Tag version
       id: tag_version
       if: ${{ inputs.mode == 'prod' && inputs.release == 'true' }}
       uses: mathieudutour/github-tag-action@v6.2
@@ -309,6 +412,12 @@ runs:
         pre_release_branches: ${{ inputs.pre_release_branches }}
 
     - name: Create GitHub release
+      if: ${{ inputs.mode == 'prod' && inputs.release == 'true' }}
+      shell: bash
+      run: |
+        bash "${{ github.action_path }}/scripts/step_banner.sh" "Creating GitHub release"
+
+    - name: Create GitHub release
       id: do_release
       if: ${{ inputs.mode == 'prod' && inputs.release == 'true' }}
       uses: ncipollo/release-action@v1
@@ -316,12 +425,3 @@ runs:
         tag: ${{ steps.tag_version.outputs.new_tag }}
         name: ${{ steps.tag_version.outputs.new_tag }}
         body: ${{ steps.tag_version.outputs.changelog }}
-
-    - name: Expose release tag output
-      id: release-output
-      if: ${{ inputs.mode == 'prod' && inputs.release == 'true' }}
-      shell: bash
-      env:
-        TAG: ${{ steps.tag_version.outputs.new_tag }}
-      run: |
-        echo "release_tag=${TAG}" >> $GITHUB_OUTPUT
