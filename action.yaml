@@ -544,7 +544,7 @@ runs:
         fi
 
         echo "Running slot health check for $URL with APP_VERSION='${APP_VERSION}'"
-        bash "${{ github.action_path }}/scripts/health.sh" "$URL" 20 15 "slot (${{ inputs.slot_name }})" "${APP_VERSION}"
+        bash "${{ github.action_path }}/scripts/health.sh" "$URL" 15 10 "slot (${{ inputs.slot_name }})" "${APP_VERSION}"
 
     # --- Non-prod: push pre-release tag only after successful deploy & health ---
 
@@ -639,7 +639,7 @@ runs:
         fi
 
         echo "Running production health check for $URL with APP_VERSION='${APP_VERSION}'"
-        bash "${{ github.action_path }}/scripts/health.sh" "$URL" 10 15 "production after swap" "${APP_VERSION}"
+        bash "${{ github.action_path }}/scripts/health.sh" "$URL" 15 10 "production after swap" "${APP_VERSION}"
 
     # --- Optional release in prod mode ---
 

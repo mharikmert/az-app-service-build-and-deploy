@@ -2,8 +2,8 @@
 set -euo pipefail
 
 URL="${1:-}"
-MAX_ATTEMPTS="${2:-20}"
-SLEEP_SECONDS="${3:-15}"
+MAX_ATTEMPTS="${2:-15}"
+SLEEP_SECONDS="${3:-10}"
 LABEL="${4:-healthcheck}"
 EXPECTED_VERSION="${5:-}"
 
@@ -19,7 +19,7 @@ attempt=1
 while [ "$attempt" -le "$MAX_ATTEMPTS" ]; do
   echo "Attempt $attempt/$MAX_ATTEMPTS..."
 
-  RESPONSE=$(curl -sS -w "HTTP_CODE:%{http_code}" "$URL" || true)
+  RESPONSE=$(curl -sS --max-time 5 -w "HTTP_CODE:%{http_code}" "$URL" || true)
   HTTP_CODE="${RESPONSE##*HTTP_CODE:}"
   BODY="${RESPONSE%HTTP_CODE:*}"
 
