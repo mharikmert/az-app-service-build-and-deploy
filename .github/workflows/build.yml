@@ -2,7 +2,7 @@ name: Build & Tag Action
 
 on:
   push:
-    branches: ["master", "test", "v2/rewrite-with-typescript"]
+    branches: ["master", "test"]
 
 jobs:
   build:
@@ -26,7 +26,7 @@ jobs:
           default_bump: patch
           default_prerelease_bump: false
           release_branches: master
-          pre_release_branches: "test, v2/rewrite-with-typescript"
+          pre_release_branches: test
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
