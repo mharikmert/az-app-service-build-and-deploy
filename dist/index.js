@@ -17585,12 +17585,12 @@ var require_lib = __commonJS({
             throw new Error("Client has already been disposed.");
           }
           const parsedUrl = new URL(requestUrl);
-          let info3 = this._prepareRequest(verb, parsedUrl, headers);
+          let info4 = this._prepareRequest(verb, parsedUrl, headers);
           const maxTries = this._allowRetries && RetryableHttpVerbs.includes(verb) ? this._maxRetries + 1 : 1;
           let numTries = 0;
           let response;
           do {
-            response = yield this.requestRaw(info3, data);
+            response = yield this.requestRaw(info4, data);
             if (response && response.message && response.message.statusCode === HttpCodes.Unauthorized) {
               let authenticationHandler;
               for (const handler of this.handlers) {
@@ -17600,7 +17600,7 @@ var require_lib = __commonJS({
                 }
               }
               if (authenticationHandler) {
-                return authenticationHandler.handleAuthentication(this, info3, data);
+                return authenticationHandler.handleAuthentication(this, info4, data);
               } else {
                 return response;
               }
@@ -17623,8 +17623,8 @@ var require_lib = __commonJS({
                   }
                 }
               }
-              info3 = this._prepareRequest(verb, parsedRedirectUrl, headers);
-              response = yield this.requestRaw(info3, data);
+              info4 = this._prepareRequest(verb, parsedRedirectUrl, headers);
+              response = yield this.requestRaw(info4, data);
               redirectsRemaining--;
             }
             if (!response.message.statusCode || !HttpResponseRetryCodes.includes(response.message.statusCode)) {
@@ -17653,7 +17653,7 @@ var require_lib = __commonJS({
        * @param info
        * @param data
        */
-      requestRaw(info3, data) {
+      requestRaw(info4, data) {
         return __awaiter(this, void 0, void 0, function* () {
           return new Promise((resolve, reject) => {
             function callbackForResult(err, res) {
@@ -17665,7 +17665,7 @@ var require_lib = __commonJS({
                 resolve(res);
               }
             }
-            this.requestRawWithCallback(info3, data, callbackForResult);
+            this.requestRawWithCallback(info4, data, callbackForResult);
           });
         });
       }
@@ -17675,12 +17675,12 @@ var require_lib = __commonJS({
        * @param data
        * @param onResult
        */
-      requestRawWithCallback(info3, data, onResult) {
+      requestRawWithCallback(info4, data, onResult) {
         if (typeof data === "string") {
-          if (!info3.options.headers) {
-            info3.options.headers = {};
+          if (!info4.options.headers) {
+            info4.options.headers = {};
           }
-          info3.options.headers["Content-Length"] = Buffer.byteLength(data, "utf8");
+          info4.options.headers["Content-Length"] = Buffer.byteLength(data, "utf8");
         }
         let callbackCalled = false;
         function handleResult(err, res) {
@@ -17689,7 +17689,7 @@ var require_lib = __commonJS({
             onResult(err, res);
           }
         }
-        const req = info3.httpModule.request(info3.options, (msg) => {
+        const req = info4.httpModule.request(info4.options, (msg) => {
           const res = new HttpClientResponse(msg);
           handleResult(void 0, res);
         });
@@ -17701,7 +17701,7 @@ var require_lib = __commonJS({
           if (socket) {
             socket.end();
           }
-          handleResult(new Error(`Request timeout: ${info3.options.path}`));
+          handleResult(new Error(`Request timeout: ${info4.options.path}`));
         });
         req.on("error", function(err) {
           handleResult(err);
@@ -17737,27 +17737,27 @@ var require_lib = __commonJS({
         return this._getProxyAgentDispatcher(parsedUrl, proxyUrl);
       }
       _prepareRequest(method, requestUrl, headers) {
-        const info3 = {};
-        info3.parsedUrl = requestUrl;
-        const usingSsl = info3.parsedUrl.protocol === "https:";
-        info3.httpModule = usingSsl ? https2 : http3;
+        const info4 = {};
+        info4.parsedUrl = requestUrl;
+        const usingSsl = info4.parsedUrl.protocol === "https:";
+        info4.httpModule = usingSsl ? https2 : http3;
         const defaultPort = usingSsl ? 443 : 80;
-        info3.options = {};
-        info3.options.host = info3.parsedUrl.hostname;
-        info3.options.port = info3.parsedUrl.port ? parseInt(info3.parsedUrl.port) : defaultPort;
-        info3.options.path = (info3.parsedUrl.pathname || "") + (info3.parsedUrl.search || "");
-        info3.options.method = method;
-        info3.options.headers = this._mergeHeaders(headers);
+        info4.options = {};
+        info4.options.host = info4.parsedUrl.hostname;
+        info4.options.port = info4.parsedUrl.port ? parseInt(info4.parsedUrl.port) : defaultPort;
+        info4.options.path = (info4.parsedUrl.pathname || "") + (info4.parsedUrl.search || "");
+        info4.options.method = method;
+        info4.options.headers = this._mergeHeaders(headers);
         if (this.userAgent != null) {
-          info3.options.headers["user-agent"] = this.userAgent;
+          info4.options.headers["user-agent"] = this.userAgent;
         }
-        info3.options.agent = this._getAgent(info3.parsedUrl);
+        info4.options.agent = this._getAgent(info4.parsedUrl);
         if (this.handlers) {
           for (const handler of this.handlers) {
-            handler.prepareRequest(info3.options);
+            handler.prepareRequest(info4.options);
           }
         }
-        return info3;
+        return info4;
       }
       _mergeHeaders(headers) {
         if (this.requestOptions && this.requestOptions.headers) {
@@ -19747,10 +19747,10 @@ Support boolean input list: \`true | True | TRUE | false | False | FALSE\``);
       (0, command_1.issueCommand)("notice", (0, utils_1.toCommandProperties)(properties), message instanceof Error ? message.toString() : message);
     }
     exports2.notice = notice;
-    function info3(message) {
+    function info4(message) {
       process.stdout.write(message + os.EOL);
     }
-    exports2.info = info3;
+    exports2.info = info4;
     function startGroup(name) {
       (0, command_1.issue)("group", name);
     }
@@ -31431,46 +31431,62 @@ var require_follow_redirects = __commonJS({
 });
 
 // src/main.ts
-var core2 = __toESM(require_core());
+var core3 = __toESM(require_core());
 
 // src/azure.ts
 var exec = __toESM(require_exec());
+var core = __toESM(require_core());
 async function az(args) {
   let output = "";
+  let errorOutput = "";
   const options = {
     listeners: {
       stdout: (data) => {
         output += data.toString();
+      },
+      stderr: (data) => {
+        errorOutput += data.toString();
       }
     },
     silent: true
-    // Keep logs clean, handle errors manually
+    // Keep logs clean, we manually handle errors
   };
   try {
     await exec.exec("az", args, options);
     return output.trim();
   } catch (err) {
-    throw new Error(`Azure CLI failed: az ${args.join(" ")}`);
+    const cleanError = errorOutput.trim() || (err instanceof Error ? err.message : "Unknown error");
+    throw new Error(`Azure CLI failed: ${cleanError}`);
   }
 }
-async function deployZip(rg, app, slot, src) {
-  await exec.exec("az", [
+function addSlotArg(args, slot) {
+  if (slot.toLowerCase() !== "production") {
+    args.push("--slot", slot);
+  }
+}
+async function deployZip(rg, app, slot, srcPath) {
+  core.info(`\u{1F4E6} Deploying zip from ${srcPath} to ${app} (${slot})...`);
+  const args = [
     "webapp",
-    "deployment",
-    "source",
-    "config-zip",
+    "deploy",
     "--resource-group",
     rg,
     "--name",
     app,
-    "--slot",
-    slot,
-    "--src",
-    src
-  ]);
+    "--src-path",
+    srcPath,
+    "--type",
+    "zip",
+    "--async",
+    "false"
+    // Wait for completion
+  ];
+  addSlotArg(args, slot);
+  await az(args);
 }
 async function updateContainer(rg, app, slot, image) {
-  await exec.exec("az", [
+  core.info(`\u{1F433} Updating container to ${image} on ${app} (${slot})...`);
+  const configArgs = [
     "webapp",
     "config",
     "container",
@@ -31479,24 +31495,15 @@ async function updateContainer(rg, app, slot, image) {
     rg,
     "--name",
     app,
-    "--slot",
-    slot,
     "--docker-custom-image-name",
     image
-  ]);
-  await exec.exec("az", [
-    "webapp",
-    "restart",
-    "--resource-group",
-    rg,
-    "--name",
-    app,
-    "--slot",
-    slot
-  ]);
+  ];
+  addSlotArg(configArgs, slot);
+  await az(configArgs);
 }
-async function swapSlots(rg, app, source, target) {
-  await exec.exec("az", [
+async function swapSlots(rg, app, sourceSlot, targetSlot) {
+  core.info(`\u{1F680} Swapping ${sourceSlot} -> ${targetSlot}...`);
+  const args = [
     "webapp",
     "deployment",
     "slot",
@@ -31506,13 +31513,17 @@ async function swapSlots(rg, app, source, target) {
     "--name",
     app,
     "--slot",
-    source,
+    sourceSlot,
     "--target-slot",
-    target
-  ]);
+    targetSlot
+  ];
+  await az(args);
 }
-async function setAppSetting(rg, app, slot, key, val) {
-  await az([
+async function setAppSettings(rg, app, slot, settings) {
+  const pairs = Object.entries(settings).map(([k, v]) => `${k}=${v}`);
+  if (pairs.length === 0) return;
+  core.info(`\u2699\uFE0F Applying ${pairs.length} app settings to ${slot}...`);
+  const args = [
     "webapp",
     "config",
     "appsettings",
@@ -31521,32 +31532,35 @@ async function setAppSetting(rg, app, slot, key, val) {
     rg,
     "--name",
     app,
-    "--slot",
-    slot,
     "--settings",
-    `${key}=${val}`
-  ]);
+    ...pairs
+  ];
+  addSlotArg(args, slot);
+  await az(args);
 }
 async function getSlotUrl(rg, app, slot) {
-  const hostname = await az([
+  const args = [
     "webapp",
     "show",
     "--resource-group",
     rg,
     "--name",
     app,
-    "--slot",
-    slot,
     "--query",
     "defaultHostName",
     "-o",
     "tsv"
-  ]);
+  ];
+  addSlotArg(args, slot);
+  const hostname = await az(args);
+  if (!hostname) {
+    throw new Error(`Could not resolve hostname for ${app} (slot: ${slot})`);
+  }
   return `https://${hostname}`;
 }
 
 // src/health.ts
-var core = __toESM(require_core());
+var core2 = __toESM(require_core());
 
 // node_modules/axios/lib/helpers/bind.js
 function bind(fn, thisArg) {
@@ -35163,7 +35177,7 @@ var {
 async function verifyHealth(rg, app, slot, path, expectedVersion) {
   const baseUrl = await getSlotUrl(rg, app, slot);
   const healthUrl = `${baseUrl}${path.startsWith("/") ? path : "/" + path}`;
-  core.info(`\u{1FA7A} Probing: ${healthUrl}`);
+  core2.info(`\u{1FA7A} Probing: ${healthUrl}`);
   const timeoutMs = 5 * 60 * 1e3;
   const startTime = Date.now();
   while (Date.now() - startTime < timeoutMs) {
@@ -35174,7 +35188,7 @@ async function verifyHealth(rg, app, slot, path, expectedVersion) {
       });
       if (response.status >= 200 && response.status < 300) {
         if (!expectedVersion) {
-          core.info(`\u2705 Health check passed (HTTP ${response.status}).`);
+          core2.info(`\u2705 Health check passed (HTTP ${response.status}).`);
           return;
         }
         const data = response.data;
@@ -35192,19 +35206,19 @@ async function verifyHealth(rg, app, slot, path, expectedVersion) {
           }
         }
         if (versionFound) {
-          core.info(`\u2705 Verified! Found version identifier '${expectedVersion}' in response.`);
+          core2.info(`\u2705 Verified! Found version identifier '${expectedVersion}' in response.`);
           return;
         } else {
           const preview = typeof data === "string" ? data.substring(0, 50).replace(/\n/g, " ") + "..." : JSON.stringify(data);
-          core.info(`\u23F3 HTTP ${response.status} OK, but version mismatch.`);
-          core.info(`   Wanted: "${expectedVersion}"`);
-          core.info(`   Got body: "${preview}"`);
+          core2.info(`\u23F3 HTTP ${response.status} OK, but version mismatch.`);
+          core2.info(`   Wanted: "${expectedVersion}"`);
+          core2.info(`   Got body: "${preview}"`);
         }
       } else {
-        core.info(`\u23F3 App returned HTTP ${response.status}. Waiting for 200 OK...`);
+        core2.info(`\u23F3 App returned HTTP ${response.status}. Waiting for 200 OK...`);
       }
     } catch (err) {
-      core.debug(`\u26A0\uFE0F Network probe failed: ${err.message}`);
+      core2.debug(`\u26A0\uFE0F Network probe failed: ${err.message}`);
     }
     await new Promise((r) => setTimeout(r, 1e4));
   }
@@ -35214,47 +35228,47 @@ async function verifyHealth(rg, app, slot, path, expectedVersion) {
 // src/main.ts
 async function run() {
   try {
-    const appName = core2.getInput("app_name", { required: true });
-    const resourceGroup = core2.getInput("resource_group", { required: true });
-    const slotName = core2.getInput("slot_name", { required: true });
-    const mode = core2.getInput("mode") || "non-prod";
-    const packagePath = core2.getInput("package_path");
-    const images = core2.getInput("images");
-    const healthPath = core2.getInput("health_check_path") || "/";
-    const expectedVersion = core2.getInput("expected_version");
+    const appName = core3.getInput("app_name", { required: true });
+    const resourceGroup = core3.getInput("resource_group", { required: true });
+    const slotName = core3.getInput("slot_name", { required: true });
+    const mode = core3.getInput("mode") || "non-prod";
+    const packagePath = core3.getInput("package_path");
+    const images = core3.getInput("images");
+    const healthPath = core3.getInput("health_check_path") || "/";
+    const expectedVersion = core3.getInput("expected_version");
     if (!packagePath && !images) {
       throw new Error("\u274C You must provide either 'package_path' (Code) or 'images' (Container).");
     }
-    if (expectedVersion) {
-      core2.info(`\u2699\uFE0F  Setting APP_VERSION=${expectedVersion} on slot '${slotName}'...`);
-      await setAppSetting(resourceGroup, appName, slotName, "APP_VERSION", expectedVersion);
-    }
     if (images) {
-      core2.info(`\u{1F433} Deploying Container to slot '${slotName}'...`);
+      core3.info(`\u{1F433} Deploying Container to slot '${slotName}'...`);
       await updateContainer(resourceGroup, appName, slotName, images);
     } else if (packagePath) {
-      core2.info(`\u{1F4E6} Deploying Code to slot '${slotName}'...`);
+      core3.info(`\u{1F4E6} Deploying Code to slot '${slotName}'...`);
       await deployZip(resourceGroup, appName, slotName, packagePath);
     }
-    core2.info(`\u{1F50D} [1/${mode === "prod" ? "2" : "1"}] Verifying Slot '${slotName}'...`);
+    if (expectedVersion) {
+      core3.info(`\u2699\uFE0F  Setting APP_VERSION=${expectedVersion} on slot '${slotName}'...`);
+      await setAppSettings(resourceGroup, appName, slotName, { "APP_VERSION": expectedVersion });
+    }
+    core3.info(`\u{1F50D} [1/${mode === "prod" ? "2" : "1"}] Verifying Slot '${slotName}'...`);
     await verifyHealth(resourceGroup, appName, slotName, healthPath, expectedVersion);
     if (mode !== "prod") {
-      core2.info(`\u2705 Non-Prod deployment to '${slotName}' successful.`);
+      core3.info(`\u2705 Non-Prod deployment to '${slotName}' successful.`);
       return;
     }
-    const targetSlot = core2.getInput("swap_target") || "production";
-    core2.info(`\u{1F680} Mode is 'prod'. Swapping '${slotName}' -> '${targetSlot}'...`);
+    const targetSlot = core3.getInput("swap_target") || "production";
+    core3.info(`\u{1F680} Mode is 'prod'. Swapping '${slotName}' -> '${targetSlot}'...`);
     await swapSlots(resourceGroup, appName, slotName, targetSlot);
-    core2.info(`\u{1F50D} [2/2] Verifying Production Target '${targetSlot}'...`);
+    core3.info(`\u{1F50D} [2/2] Verifying Production Target '${targetSlot}'...`);
     try {
       await verifyHealth(resourceGroup, appName, targetSlot, healthPath, expectedVersion);
-      core2.info("\u2705 Production Swap Verified. Deployment Complete.");
+      core3.info("\u2705 Production Swap Verified. Deployment Complete.");
     } catch (err) {
-      core2.error("\u274C PRODUCTION HEALTH CHECK FAILED AFTER SWAP.");
+      core3.error("\u274C PRODUCTION HEALTH CHECK FAILED AFTER SWAP.");
       throw err;
     }
   } catch (error2) {
-    if (error2 instanceof Error) core2.setFailed(error2.message);
+    if (error2 instanceof Error) core3.setFailed(error2.message);
   }
 }
 run();

@@ -1,5 +1,5 @@
 import * as core from '@actions/core';
-import { updateContainer, deployZip, swapSlots, setAppSetting } from './azure';
+import { updateContainer, deployZip, swapSlots, setAppSettings } from './azure';
 import { verifyHealth } from './health';
 
 async function run(): Promise<void> {
@@ -33,7 +33,7 @@ async function run(): Promise<void> {
         }
         if (expectedVersion) {
             core.info(`⚙️  Setting APP_VERSION=${expectedVersion} on slot '${slotName}'...`);
-            await setAppSetting(resourceGroup, appName, slotName, 'APP_VERSION', expectedVersion);
+            await setAppSettings(resourceGroup, appName, slotName, { 'APP_VERSION': expectedVersion } as Record<string, string>);
         }
 
         // --- Step 2: Verify Initial Slot (Always runs) ---
