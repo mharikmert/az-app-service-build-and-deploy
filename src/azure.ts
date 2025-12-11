@@ -1,5 +1,6 @@
 import * as exec from '@actions/exec';
 import * as core from '@actions/core';
+import { preparePackage } from './helper';
 
 /**
  * Helper to run az commands cleanly and capture output/errors.
@@ -35,15 +36,23 @@ function addSlotArg(args: string[], slot: string) {
     }
 }
 
+/**
+ * Deploy a package to Azure App Service.
+ * - Folder: auto-zips via helper
+ * - File: infers type from extension (zip, war, jar, ear)
+ */
 export async function deployPackage(rg: string, app: string, slot: string, srcPath: string) {
-    core.info(`📦 Deploying package from ${srcPath} to ${app} (${slot})...`);
+    const pkg = await preparePackage(srcPath);
+
+    core.info(`📦 Deploying ${pkg.type} from ${pkg.path} to ${app} (${slot})...`);
 
     const args = [
         'webapp', 'deploy',
         '--resource-group', rg,
         '--name', app,
-        '--src-path', srcPath,
-        '--async', 'false' // Wait for completion
+        '--src-path', pkg.path,
+        '--type', pkg.type,
+        '--async', 'false'
     ];
 
     addSlotArg(args, slot);

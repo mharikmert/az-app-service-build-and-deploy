@@ -1,20 +1,27 @@
 import * as exec from '@actions/exec';
-import * as core from '@actions/core';
+import * as helper from '../src/helper';
 
 // Mock the modules
 jest.mock('@actions/exec');
 jest.mock('@actions/core');
+jest.mock('../src/helper');
 
 // Import after mocking
 import { deployPackage, deployContainer, swapSlots, setAppSettings, getSlotUrl } from '../src/azure';
 
 const mockExec = exec.exec as jest.MockedFunction<typeof exec.exec>;
+const mockPreparePackage = helper.preparePackage as jest.MockedFunction<typeof helper.preparePackage>;
 
 describe('azure.ts', () => {
     beforeEach(() => {
         jest.clearAllMocks();
         // Default: simulate successful exec
         mockExec.mockResolvedValue(0);
+        // Default: preparePackage returns the path as-is with type 'zip'
+        mockPreparePackage.mockImplementation(async (srcPath) => ({
+            path: srcPath,
+            type: 'zip'
+        }));
     });
 
     describe('addSlotArg behavior (tested through exported functions)', () => {
@@ -49,10 +56,11 @@ describe('azure.ts', () => {
         });
     });
 
-    describe('deployZip', () => {
+    describe('deployPackage', () => {
         it('should call az webapp deploy with correct arguments', async () => {
             await deployPackage('my-rg', 'my-app', 'staging', '/path/to/app.zip');
 
+            expect(mockPreparePackage).toHaveBeenCalledWith('/path/to/app.zip');
             expect(mockExec).toHaveBeenCalledWith(
                 'az',
                 [
@@ -60,10 +68,48 @@ describe('azure.ts', () => {
                     '--resource-group', 'my-rg',
                     '--name', 'my-app',
                     '--src-path', '/path/to/app.zip',
+                    '--type', 'zip',
                     '--async', 'false',
                     '--slot', 'staging'
                 ],
                 expect.objectContaining({ silent: true })
+            );
+        });
+
+        it('should use deploy type from preparePackage', async () => {
+            mockPreparePackage.mockResolvedValue({ path: '/path/to/app.war', type: 'war' });
+
+            await deployPackage('my-rg', 'my-app', 'staging', '/path/to/app.war');
+
+            expect(mockExec).toHaveBeenCalledWith(
+                'az',
+                expect.arrayContaining(['--type', 'war']),
+                expect.any(Object)
+            );
+        });
+
+        it('should deploy folder as zip (auto-zipped by preparePackage)', async () => {
+            // Simulate preparePackage receiving a folder and returning a zipped path
+            mockPreparePackage.mockResolvedValue({
+                path: '/tmp/deploy-1234567890.zip',
+                type: 'zip'
+            });
+
+            await deployPackage('my-rg', 'my-app', 'staging', '/path/to/dist');
+
+            expect(mockPreparePackage).toHaveBeenCalledWith('/path/to/dist');
+            expect(mockExec).toHaveBeenCalledWith(
+                'az',
+                [
+                    'webapp', 'deploy',
+                    '--resource-group', 'my-rg',
+                    '--name', 'my-app',
+                    '--src-path', '/tmp/deploy-1234567890.zip',
+                    '--type', 'zip',
+                    '--async', 'false',
+                    '--slot', 'staging'
+                ],
+                expect.any(Object)
             );
         });
 
