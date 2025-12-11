@@ -25,7 +25,6 @@ jobs:
           release_branches: master
           pre_release_branches: test
           default_bump: patch
-          default_prerelease_bump: false
           dry_run: true
 
       - name: Set New Tag

@@ -209,8 +209,7 @@ The action implements a polling mechanism with a 5-minute timeout:
 
 ---
 
-## 🧪 Tests [![Coverage Status](https://coveralls.io/repos/github/mharikmert/az-webapp-safe-deploy/badge.svg?branch=master)](https://coveralls.io/github/mharikmert/az-webapp-safe-deploy?branch=master)
-
+## 🧪 Tests [![Coverage Status](https://coveralls.io/repos/github/mharikmert/az-webapps-safe-deploy/badge.svg)](https://coveralls.io/github/mharikmert/az-webapps-safe-deploy)
 
 ```bash
 npm install
