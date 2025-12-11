@@ -35,15 +35,14 @@ function addSlotArg(args: string[], slot: string) {
     }
 }
 
-export async function deployZip(rg: string, app: string, slot: string, srcPath: string) {
-    core.info(`📦 Deploying zip from ${srcPath} to ${app} (${slot})...`);
+export async function deployPackage(rg: string, app: string, slot: string, srcPath: string) {
+    core.info(`📦 Deploying package from ${srcPath} to ${app} (${slot})...`);
 
     const args = [
         'webapp', 'deploy',
         '--resource-group', rg,
         '--name', app,
         '--src-path', srcPath,
-        '--type', 'zip',
         '--async', 'false' // Wait for completion
     ];
 
@@ -51,8 +50,8 @@ export async function deployZip(rg: string, app: string, slot: string, srcPath: 
     await az(args);
 }
 
-export async function updateContainer(rg: string, app: string, slot: string, image: string) {
-    core.info(`🐳 Updating container to ${image} on ${app} (${slot})...`);
+export async function deployContainer(rg: string, app: string, slot: string, image: string) {
+    core.info(`🐳 Deploying container to ${image} on ${app} (${slot})...`);
 
     // 1. Update configuration
     const configArgs = [

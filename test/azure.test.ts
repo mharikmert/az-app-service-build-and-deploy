@@ -6,7 +6,7 @@ jest.mock('@actions/exec');
 jest.mock('@actions/core');
 
 // Import after mocking
-import { deployZip, updateContainer, swapSlots, setAppSettings, getSlotUrl } from '../src/azure';
+import { deployPackage, deployContainer, swapSlots, setAppSettings, getSlotUrl } from '../src/azure';
 
 const mockExec = exec.exec as jest.MockedFunction<typeof exec.exec>;
 
@@ -19,7 +19,7 @@ describe('azure.ts', () => {
 
     describe('addSlotArg behavior (tested through exported functions)', () => {
         it('should NOT add --slot for "production" slot (case-insensitive)', async () => {
-            await deployZip('my-rg', 'my-app', 'production', '/app.zip');
+            await deployPackage('my-rg', 'my-app', 'production', '/app.zip');
 
             expect(mockExec).toHaveBeenCalledWith(
                 'az',
@@ -29,7 +29,7 @@ describe('azure.ts', () => {
         });
 
         it('should NOT add --slot for "Production" slot (uppercase)', async () => {
-            await deployZip('my-rg', 'my-app', 'Production', '/app.zip');
+            await deployPackage('my-rg', 'my-app', 'Production', '/app.zip');
 
             expect(mockExec).toHaveBeenCalledWith(
                 'az',
@@ -39,7 +39,7 @@ describe('azure.ts', () => {
         });
 
         it('should add --slot for non-production slots', async () => {
-            await deployZip('my-rg', 'my-app', 'staging', '/app.zip');
+            await deployPackage('my-rg', 'my-app', 'staging', '/app.zip');
 
             expect(mockExec).toHaveBeenCalledWith(
                 'az',
@@ -51,7 +51,7 @@ describe('azure.ts', () => {
 
     describe('deployZip', () => {
         it('should call az webapp deploy with correct arguments', async () => {
-            await deployZip('my-rg', 'my-app', 'staging', '/path/to/app.zip');
+            await deployPackage('my-rg', 'my-app', 'staging', '/path/to/app.zip');
 
             expect(mockExec).toHaveBeenCalledWith(
                 'az',
@@ -60,7 +60,6 @@ describe('azure.ts', () => {
                     '--resource-group', 'my-rg',
                     '--name', 'my-app',
                     '--src-path', '/path/to/app.zip',
-                    '--type', 'zip',
                     '--async', 'false',
                     '--slot', 'staging'
                 ],
@@ -77,15 +76,15 @@ describe('azure.ts', () => {
                 throw new Error('Process failed');
             });
 
-            await expect(deployZip('rg', 'app', 'staging', '/app.zip'))
+            await expect(deployPackage('rg', 'app', 'staging', '/app.zip'))
                 .rejects
                 .toThrow('Azure CLI failed: Deployment failed: quota exceeded');
         });
     });
 
-    describe('updateContainer', () => {
+    describe('deployContainer', () => {
         it('should call az webapp config container set with correct arguments', async () => {
-            await updateContainer('my-rg', 'my-app', 'staging', 'myregistry.azurecr.io/myimage:v1');
+            await deployContainer('my-rg', 'my-app', 'staging', 'myregistry.azurecr.io/myimage:v1');
 
             expect(mockExec).toHaveBeenCalledWith(
                 'az',
