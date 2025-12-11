@@ -207,3 +207,19 @@ The action implements a polling mechanism with a 5-minute timeout:
 **Azure CLI Failed**
 - Verify the service principal has Contributor role on the resource group
 - Ensure `azure/login` completed successfully before this action
+
+---
+
+## 🧪 Testing
+
+This action includes a comprehensive test suite covering Azure CLI wrapper functions and health check logic.
+
+[![Coverage Status](https://coveralls.io/repos/github/mharikmert/az-webapp-safe-deploy/badge.svg?branch=master)](https://coveralls.io/github/mharikmert/az-webapp-safe-deploy?branch=master)
+
+### Run Tests
+
+```bash
+npm install
+npm test                 # Run all tests
+npm test -- --coverage   # With coverage report
+```
