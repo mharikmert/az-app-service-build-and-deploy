@@ -90,13 +90,16 @@ jobs:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Deploy to Staging
-        uses: mharikmert/az-webapp-safe-deploy@v2
+        uses: mharikmert/az-webapps-safe-deploy@v2
         with:
           mode: "non-prod"
+          # Identity
           app_name: "my-backend-api"
           resource_group: "my-rg"
           slot_name: "staging"
+          # Artifact
           package_path: "dist" 
+          # Verification
           health_check_path: "/health"
           expected_version: ${{ github.sha }}
 
@@ -129,7 +132,7 @@ jobs:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Deploy to Staging & Swap to Production
-        uses: mharikmert/az-webapp-safe-deploy@v2
+        uses: mharikmert/az-webapps-safe-deploy@v2
         with:
           mode: "prod"
           # Identity
@@ -209,7 +212,7 @@ The action implements a polling mechanism with a 5-minute timeout:
 
 ---
 
-## 🧪 Tests [![Coverage Status](https://coveralls.io/repos/github/mharikmert/az-webapps-safe-deploy/badge.svg)](https://coveralls.io/github/mharikmert/az-webapps-safe-deploy)
+## 🧪 Tests [![Coverage Status](https://coveralls.io/repos/github/mharikmert/az-webapps-safe-deploy/badge.svg?branch=master)](https://coveralls.io/github/mharikmert/az-webapps-safe-deploy?branch=master)
 
 ```bash
 npm install
